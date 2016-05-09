@@ -1,0 +1,80 @@
+---
+title: "RandomForest"
+author: "Christopher Aldama Pérez"
+date: "8 de mayo de 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Barbell Lifts and Ramdom Forest
+
+This document is a submission to the Practical Machine Learning Assigment, as part of the Coursera DataScience specialization.
+The task is to fit a model that can predict the type of excersice performed using  accelerometer data from fit bands.
+
+### Loading the data set and preprocessing
+
+The dataset is distributed in 2 files: pml-training for model training and pml-testing to generate predictions with the generated model.
+Our first step is to load this files into data frames and split the training file into a training and a validation dataset using a
+72-25 split.
+
+```{r}
+library(caret)
+set.seed(12345)
+training.csv <- read.csv('pml-training.csv')
+testing <- read.csv('pml-testing.csv')
+trainIdx <- createDataPartition(training.csv$classe, p = 0.75, list = F)
+training <- training.csv[trainIdx, ]
+validation <- training.csv[-trainIdx, ]
+```
+
+Exploring the names of the training columns reveals that some columns contains descriptive text that it's not relevant to the model. Another way to filter useless columns it's using the nearZeroVar function that helps to identify predictors
+with almost no variance and remove columns with lots of NA or empty values.
+
+```{r}
+zero <- nearZeroVar(training)
+training <- training[, -zero]
+desc <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+"cvtd_timestamp", "new_window", "num_window")
+training <- training[, !names(training) %in% desc]
+
+count <- sapply(training, function(x) {
+  sum(!(is.na(x) | x == ""))
+})
+nullcol <- names(count[count < 0.6 * length(training$classe)])
+training <- training[, !names(training) %in% c(nullcol)]
+```
+
+### Model Fitting
+
+In order to create the model, we can use the train function provided by the caret library and the "rf" method
+to use Random Forest, this can take some time to compute.
+
+```{r}
+model.rf <- train(classe ~ ., data=training, method='rf')
+plot(model.rf$finalModel)
+```
+
+### Cross Validation
+
+Now we can use the validation dataset to test our model prediction Accuracy
+
+```{r}
+pred.rf <- predict(model.rf, validation)
+print(confusionMatrix(pred.rf, validation$classe)$overall)
+```
+
+We can see that the Accuracy is really good.
+
+### Prediction
+
+The final step is to predict the outcome of new data, in thi case the outcome of the testing dataset
+
+```{r}
+ pred.test.rf <- predict(model.rf, testing)
+ print(pred.test.rf)
+```
+
+
